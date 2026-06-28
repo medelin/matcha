@@ -1226,6 +1226,32 @@ func (m *Inbox) fetchMoreCmds() []tea.Cmd {
 	return cmds
 }
 
+// wrapTabRows lays account tabs out across multiple rows so that a large number
+// of accounts stays visible instead of overflowing the terminal width. Each row
+// is filled until adding the next tab would exceed width, then a new row starts.
+func wrapTabRows(tabViews []string, width int) string {
+	if width <= 0 {
+		width = 80
+	}
+	var rows []string
+	var row []string
+	rowW := 0
+	for _, tv := range tabViews {
+		w := lipgloss.Width(tv)
+		if len(row) > 0 && rowW+w > width {
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, row...))
+			row = nil
+			rowW = 0
+		}
+		row = append(row, tv)
+		rowW += w
+	}
+	if len(row) > 0 {
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, row...))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
 func (m *Inbox) View() tea.View {
 	var b strings.Builder
 
@@ -1244,7 +1270,9 @@ func (m *Inbox) View() tea.View {
 				tabViews = append(tabViews, tabStyle.Render(label))
 			}
 		}
-		tabBar := tabBarStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, tabViews...))
+		// Wrap account tabs onto multiple rows so a large number of accounts
+		// stays visible instead of overflowing the terminal width.
+		tabBar := tabBarStyle.Render(wrapTabRows(tabViews, m.width))
 		b.WriteString(tabBar)
 		b.WriteString("\n")
 	}
